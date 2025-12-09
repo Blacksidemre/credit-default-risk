@@ -1,292 +1,165 @@
+-----
+
 ````markdown
-# credit-default-risk-final
+# Credit Default Risk Prediction 💳
 
-Bu proje, UCI **Default of Credit Card Clients** veri seti kullanılarak kredi kartı müşterilerinin bir sonraki ay temerrüde düşme riskini tahmin etmek için hazırlanmıştır.  
-Amaç, gerçek hayatta bankaların kredi riskini yönetmek için kullanabileceği, uçtan uca bir makine öğrenmesi pipeline’ı kurmaktır.
+Bu proje, UCI **"Default of Credit Card Clients"** veri seti kullanılarak, kredi kartı müşterilerinin bir sonraki ay temerrüde düşme riskini tahmin etmek için hazırlanmış uçtan uca bir makine öğrenmesi çalışmasıdır.
 
----
-
-## 1. Problem Tanımı
-
-- Hedef değişken: `TARGET`
-  - `1` → Müşteri bir sonraki ay ödemede **temerrüde düşüyor**
-  - `0` → Müşteri normal ödemeye devam ediyor
-- İş problemi:  
-  Banka, temerrüt riski yüksek olan müşterileri önceden tespit edip:
-  - Kredi limitini düşürebilir
-  - Ek teminat isteyebilir
-  - Kampanya / kart tekliflerini kısıtlayabilir
-
-Bu yüzden **false negative** (riskli müşteriyi risksiz sanmak) hatası, false positive’ten daha maliyetlidir.
+**Amaç:** Bankaların riskli müşterileri önceden tespit ederek kredi stratejilerini daha güvenli ve veri odaklı bir şekilde yönetebilmesini sağlamaktır.
 
 ---
 
-## 2. Veri Seti
+## 📌 Problem Tanımı
 
-- Kaynak: UCI – *Default of Credit Card Clients Dataset*
-- Gözlem sayısı: ≈ 30.000 müşteri
-- Bazı önemli değişkenler:
-  - `LIMIT_BAL` – Toplam kredi limiti
-  - `BILL_AMT1–6` – Son 6 aya ait fatura tutarları
-  - `PAY_AMT1–6` – Son 6 aya ait ödeme tutarları
-  - `PAY_0–PAY_6` – Gecikme durumu kodları
-  - `SEX`, `EDUCATION`, `MARRIAGE`, `AGE` – Demografik değişkenler
+Projenin temel amacı `TARGET` değişkenini tahmin etmektir:
 
-Ham veri dosyası:
+* **1 = Default:** Riski yüksek müşteri (Temerrüde düşen)
+* **0 = Normal:** Ödemelerini düzenli yapan müşteri
+
+> **Kritik Not:** Gerçek hayattaki iş problemi açısından **"False Negative"** (riskli müşteriyi risksiz sanmak) en tehlikeli hatadır. Bu nedenle model başarısı değerlendirilirken **ROC-AUC** ve **Recall** metrikleri ön planda tutulmuştur.
+
+---
+
+## 📂 Veri Seti
+
+* **Kaynak:** UCI – Default of Credit Card Clients
+* **Boyut:** Yaklaşık 30.000 müşteri kaydı
+* **Ham Veri Yolu:** `data/raw/default_of_credit_card_clients.csv`
+
+### Ana Değişken Grupları
+* **LIMIT_BAL:** Kredi limiti
+* **BILL_AMT1–6:** Son 6 aya ait fatura tutarları
+* **PAY_AMT1–6:** Son 6 aya ait ödeme tutarları
+* **PAY_0–PAY_6:** Geçmiş ödeme/gecikme durumları
+* **Demografik:** Cinsiyet, eğitim, medeni durum ve yaş bilgileri
+
+---
+
+## 🏗 Proje Klasör Yapısı
+
+Profesyonel veri bilimi standartlarına uygun proje mimarisi:
+
 ```text
-data/raw/default_of_credit_card_clients.csv
+credit-default-risk-final
+│
+├── data/
+│   └── raw/                     # Ham veri dosyası
+│
+├── docs/                        # Dokümantasyon ve Görseller
+│   ├── report.md                # Genel proje raporu
+│   ├── eda.md                   # Keşifsel analiz raporu
+│   ├── modeling.md              # Modelleme süreci
+│   ├── results.md               # Final sonuçlar
+│   ├── pipeline.png             # Pipeline diyagramı
+│   ├── feature_importance.png   # Değişken önem düzeyleri
+│   ├── confusion_matrix.png     # Karışıklık matrisi
+│   ├── metrics.json             # Model skorları
+│   └── placeholders/            # Ek EDA görselleri
+│
+├── models/
+│   └── final_model.pkl          # Eğitilmiş LightGBM modeli
+│
+├── notebooks/                   # Analiz ve Geliştirme Notları
+│   ├── 1_eda.ipynb              # Veri inceleme
+│   ├── 2_baseline.ipynb         # Logistic Regression (Baz Model)
+│   ├── 3_feature_engineering.ipynb # Yeni değişken üretimi
+│   ├── 4_modeling.ipynb         # LightGBM eğitimi
+│   ├── 5_evaluation.ipynb       # Sonuç değerlendirme
+│   └── 6_pipeline.ipynb         # Pipeline görselleştirme
+│
+├── src/                         # Python Kaynak Kodları
+│   ├── data_prep.py             # Veri ön işleme
+│   ├── pipeline.py              # Model boru hattı
+│   ├── inference.py             # Tahminleme modülü
+│   ├── config.py                # Konfigürasyon ayarları
+│   └── __init__.py
+│
+└── requirements.txt             # Gerekli kütüphaneler
 ````
 
----
+-----
 
-## 3. Proje Yapısı
+## ⚙️ Özellik Mühendisliği (Feature Engineering)
 
-```text
-credit-default-risk-final/
-├── data/
-│   └── raw/
-│       └── default_of_credit_card_clients.csv
-├── docs/
-│   ├── report.md
-│   ├── eda.md
-│   ├── modeling.md
-│   ├── results.md
-│   ├── metrics.json
-│   ├── pipeline.png
-│   ├── feature_importance.png
-│   ├── confusion_matrix.png
-│   └── placeholders/
-│       ├── eda_plots.png
-│       └── metrics_table.png
-├── models/
-│   └── final_model.pkl
-├── notebooks/
-│   ├── 1_eda.ipynb
-│   ├── 2_baseline.ipynb
-│   ├── 3_feature_engineering.ipynb
-│   ├── 4_modeling.ipynb
-│   ├── 5_evaluation.ipynb
-│   └── 6_pipeline.ipynb
-├── src/
-│   ├── __init__.py
-│   ├── config.py
-│   ├── data_prep.py
-│   ├── pipeline.py
-│   └── inference.py
-├── tests/
-├── README.md
-└── requirements.txt
-```
+Modelin ayrıştırma gücünü artırmak adına aşağıdaki türetilmiş değişkenler oluşturulmuştur:
 
-* **`src/`** → Tüm asıl kod burada.
-* **`notebooks/`** → Raporlama için kullanılan EDA ve modelleme defterleri.
-* **`docs/`** → Yazılı raporlar + grafikler.
-* **`models/final_model.pkl`** → Eğitilmiş LightGBM pipeline’ı.
+  * `PAY_SUM`: PAY\_AMT1–6 (Ödemeler) toplamı
+  * `BILL_SUM`: BILL\_AMT1–6 (Faturalar) toplamı
+  * `LIMIT_PER_PAY`: LIMIT\_BAL / (PAY\_SUM + 1) oranı
+  * `AGE_BIN`: Yaş değişkeninin kategorik gruplandırılması
 
----
+-----
 
-## 4. Modelleme Özeti
+## 🚀 Modelleme Yaklaşımı
 
-### Feature Engineering
+### 1\. Baseline Model (Referans)
 
-`src/data_prep.py` içinde:
+  * **Model:** Logistic Regression
+  * **Amaç:** Hızlı, yorumlanabilir ve karşılaştırma için bir taban puan oluşturmak.
 
-* `PAY_SUM` = `PAY_AMT1–6` toplamı
-* `BILL_SUM` = `BILL_AMT1–6` toplamı
-* `LIMIT_PER_PAY` = `LIMIT_BAL / (PAY_SUM + 1)`
-* `AGE_BIN` = yaşın kategorik versiyonu
+### 2\. Final Model (Seçilen)
 
-### Ön İşleme
+  * **Model:** LightGBM Classifier
+  * **Neden Seçildi?** Baseline modele göre daha yüksek ROC-AUC skoru elde etmesi ve karmaşık veri yapısını daha iyi genellemesi.
+  * **Hiperparametreler:**
+      * `n_estimators = 300`
+      * `learning_rate = 0.05`
+      * `num_leaves = 50`
+      * `subsample = 0.9`
 
-Tüm sayısal değişkenler için:
+### Değerlendirme Metrikleri
 
-* Eksik değer → `SimpleImputer(strategy="median")`
-* Ölçekleme → `StandardScaler()`
+Tüm skorlar `docs/metrics.json` içerisinde kayıt altına alınmıştır.
 
-Bunlar sklearn `ColumnTransformer + Pipeline` içine gömülüdür.
+  * **ROC-AUC (Ana Metrik)**
+  * Recall & Precision
+  * Accuracy
+  * Confusion Matrix
 
-### Modeller
+-----
 
-1. **Logistic Regression (baseline)**
-2. **LightGBM (final model)**
+## 💻 Kurulum ve Çalıştırma
 
-Değerlendirme ayarı:
+Projeyi yerel makinenizde çalıştırmak için aşağıdaki adımları izleyin:
 
-* Eğitim / test oranı: **%80 / %20**
-* `stratify=y` → sınıf dengesizliğini korumak için
-* Ana metrik: **ROC-AUC**
-
-Detaylı sonuçlar ve metrikler: `docs/results.md` ve `docs/metrics.json`.
-
----
-
-## 5. Sonuçlar (Özet)
-
-* Logistic Regression ROC-AUC: **≈ log_auc**
-* LightGBM ROC-AUC: **≈ lgbm_auc**
-
-> Not: Gerçek skorlar, projeyi tekrar çalıştırdığınızda `docs/metrics.json` dosyasında yer alır.
-
-LightGBM modeli, baseline modele göre daha yüksek ROC-AUC verdiği için **final model** olarak seçilmiştir.
-Riskli sınıf için Recall ve Precision da ayrıca izlenmiştir.
-
----
-
-## 6. Kurulum
-
-Proje klasörünün içinde:
+**1. Sanal ortam oluşturun:**
 
 ```bash
 python -m venv venv
-venv\Scripts\activate      # Windows
+```
+
+**2. Ortamı aktifleştirin:**
+
+  * Windows için:
+    ```bash
+    venv\Scripts\activate
+    ```
+  * Mac/Linux için:
+    ```bash
+    source venv/bin/activate
+    ```
+
+**3. Gerekli paketleri yükleyin:**
+
+```bash
 pip install -r requirements.txt
 ```
 
-Jupyter Notebook açmak için:
+**4. Notebook'ları inceleyin:**
 
 ```bash
 jupyter notebook
 ```
 
----
+> **Not:** Tekil tahmin yapmak isteyenler için `src/inference.py` içindeki `predict_single` fonksiyonu kullanılabilir.
 
-## 7. Nasıl Çalıştırılır?
+-----
 
-### 7.1. Notebook Akışı
+## ✅ Sonuç
 
-1. `notebooks/1_eda.ipynb` → Veri yapısı, temel istatistikler, dağılımlar
-2. `notebooks/2_baseline.ipynb` → Logistic Regression ile ilk ROC-AUC
-3. `notebooks/3_feature_engineering.ipynb` → Yeni feature’ların kontrolü
-4. `notebooks/4_modeling.ipynb` → LightGBM eğitimi ve skoru
-5. `notebooks/5_evaluation.ipynb` → `metrics.json` üzerinden sonuç okuma
-6. `notebooks/6_pipeline.ipynb` → Pipeline diyagramı (pipeline.png)
+Proje uçtan uca; **veri hazırlama, özellik mühendisliği, modelleme, değerlendirme ve dokümantasyon** süreçlerini eksiksiz kapsayan, yeniden üretilebilir (reproducible) bir pipeline sunmaktadır.
 
-Tüm defterlerde aynı Python ortamı (aynı kernel) kullanılmalıdır.
-
-### 7.2. Kod Tarafı
-
-`src/pipeline.py` içinden:
-
-```python
-from src.pipeline import train_baseline, train_lgbm_with_features
-
-pipe_log, auc_log = train_baseline()
-pipe_lgbm, auc_lgbm = train_lgbm_with_features(save=True)
-```
-
-`src/inference.py` ile tek müşteri tahmini:
-
-```python
-from src.inference import predict_single
-
-sample = {
-    "LIMIT_BAL": 20000,
-    "SEX": 2,
-    "EDUCATION": 2,
-    "MARRIAGE": 1,
-    "AGE": 35,
-    # ... veri setindeki diğer kolonlar
-}
-
-proba = predict_single(sample)
-print("Default olasılığı:", proba)
-```
-
----
-
-## 8. Geliştirme Fikirleri
-
-* Hiperparametre optimizasyonu (GridSearchCV / Optuna)
-* Farklı sınıf ağırlıkları veya `class_weight="balanced"`
-* Precision–Recall eğrisi ve farklı threshold senaryoları
-* Müşteri segmentlerine göre model performans analizi
+LightGBM modeli, performans metriklerindeki başarısı nedeniyle **Final Model** olarak belirlenmiş ve `models/` klasörüne kaydedilmiştir.
 
 ````
-
-İçindeki `≈ log_auc`, `≈ lgbm_auc` kısmını istersen gerçek skorlarla elle değiştirirsin.
-
----
-
-## 2. `.gitignore`
-
-Projeye bir de `.gitignore` ekle. `credit-default-risk-final` klasörüne `.gitignore` oluştur ve şunu koy:
-
-```gitignore
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Jupyter
-.ipynb_checkpoints/
-
-# Virtual env
-venv/
-.env/
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-````
-
----
-
-## 3. GitHub’a yükleme adımları
-
-Şimdi asıl iş: bunu internete fırlatmak.
-
-### 3.1. Klasöre gir
-
-CMD’de:
-
-```bat
-cd C:\Users\Emre\Desktop\credit-build\credit-default-risk-final
-```
-
-### 3.2. Git’i başlat
-
-```bat
-git init
-git add .
-git commit -m "Initial commit - credit default risk project"
-```
-
-Eğer ilk kez kullanıyorsan, önce:
-
-```bat
-git config --global user.name "Emre"
-git config --global user.email "senin_mailin@example.com"
-```
-
-### 3.3. GitHub’da repo aç
-
-Tarayıcıda:
-
-* GitHub hesabına gir
-* **New repository**
-* İsim: `credit-default-risk-final` (aynısı olsun, kafan rahat)
-* **README, .gitignore vs oluşturma** → işaretleme, boş repo olsun.
-
-Repo açılınca sana şu tarz bir URL verecek:
-
-```text
-https://github.com/KULLANICI_ADI/credit-default-risk-final.git
-```
-
-### 3.4. Remote ekle ve push et
-
-CMD’de (hala proje klasöründesin):
-
-```bat
-git branch -M main
-git remote add origin https://github.com/KULLANICI_ADI/credit-default-risk-final.git
-git push -u origin main
-```
-
-
 
