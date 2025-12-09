@@ -1,122 +1,120 @@
 -----
 
-```markdown
-# Credit Default Risk Prediction 💳
+````markdown
+# 🏦 Kredi Temerrüt Riski Tahmini (Credit Default Risk Prediction)
 
-Bu proje, UCI **"Default of Credit Card Clients"** veri seti kullanılarak bir kredi kartı müşterisinin bir sonraki ay temerrüde düşme ihtimalini tahmin etmek için hazırlanmıştır. 
+Bu proje, UCI "Default of Credit Card Clients" veri seti kullanılarak, bir kredi kartı müşterisinin bir sonraki ay temerrüde düşme ihtimalini tahmin etmek için hazırlanmış **uçtan uca bir Makine Öğrenmesi (ML) pipeline'ıdır.**
 
-**Amaç:** Bankaların risk yönetim süreçlerinde kullanılabilecek uçtan uca, ölçeklenebilir bir makine öğrenmesi pipeline’ı inşa etmektir.
-
----
-
-## 1. Problem Tanımı
-Bu proje, bankacılık sektörünün en temel problemlerinden biri olan **Kredi Riski Tahmini** üzerine odaklanır. Bir müşterinin bir sonraki ay borcunu ödeyip ödemeyeceğini önceden tahmin etmek, bankanın şu kritik kararlarını doğrudan etkiler:
-
-* **Limit Yönetimi:** Kredi limitlerinin dinamik ayarlanması.
-* **Riskli Müşteri Segmentasyonu:** Erken uyarı sistemleri.
-* **Kampanya ve Ürün Uygunluğu:** Doğru müşteriye doğru ürün sunumu.
-* **Zarar Minimizasyonu:** Temerrüt (default) kayıplarının azaltılması.
-
-> **⚠️ Kritik İş Kuralı:** Hedef değişken (TARGET) sınıf dengesizliğine sahiptir. İş problemi açısından **"False Negative"** (riskli müşteriyi risksiz sanmak) en maliyetli hatadır. Bu nedenle model başarısında ROC-AUC ve Recall metrikleri önceliklidir.
+**Amaç:** Bankaların risk yönetim süreçlerinde kullanabileceği, yanlış negatif oranı düşük, güvenilir bir tahmin modeli sunmaktır.
 
 ---
 
-## 2. Baseline Süreci ve Skoru
-Modelleme sürecine referans bir performans noktası oluşturmak amacıyla **Logistic Regression** seçilmiştir. Sadece ham değişkenler ve minimal veri ön işleme ile yapılan eğitim sonucunda:
+## ❓ Proje Taslağındaki Cevaplar (8 Kritik Soru)
 
-* **Model:** Logistic Regression
-* **ROC-AUC Skoru:** `~0.71 – 0.73`
-* *(Detaylı gerçek skorlar `docs/metrics.json` dosyasındadır.)*
+Aşağıda, projenin teknik ve iş odaklı tüm zorunlu sorularına ait detaylı yanıtlar bulunmaktadır.
 
----
+### 1. Problem Tanımı ve İş Kararı
+Bu, bankacılık sektöründeki **Kredi Riski Tahmini** problemidir. Bir müşterinin temerrüt riskini tahmin etmek, bankanın **limit yönetimi, riskli müşteri segmentasyonu** ve **temerrüt zararını azaltma** gibi kritik kararlarını doğrudan etkiler. Hedef sınıf dengesiz olduğu için **yanlış negatif (False Negative)** en maliyetli hatadır.
 
-## 3. Feature Engineering Denemeleri ve Sonuçları
-Veri setine domain bilgisini yansıtmak ve modelin öğrenme kapasitesini artırmak amacıyla yeni özellikler türetilmiştir:
+### 2. Baseline Süreci ve Skoru
+* **Model:** Logistic Regression kullanılmıştır.
+* **Veri:** Sadece ham değişkenler ve minimal ön işleme.
+* **Sonuç:** Baseline ROC-AUC skoru **yaklaşık 0.71–0.73** aralığındadır. Bu skor, sonraki modelleme aşamaları için referans bir performans noktası oluşturmuştur.
 
-* `PAY_SUM`: Son 6 ay ödeme toplamı
-* `BILL_SUM`: Son 6 ay fatura toplamı
-* `LIMIT_PER_PAY`: Limit / (Ödeme Toplamı + 1)
-* `AGE_BIN`: Yaşın kategorik versiyonu
+### 3. Feature Engineering (FE) Denemeleri ve Sonuçları
+Veri setine domain bilgisi katmak için dört ana özellik türetilmiştir:
+* `PAY_SUM` (Son 6 ay ödeme toplamı)
+* `BILL_SUM` (Son 6 ay fatura toplamı)
+* `LIMIT_PER_PAY` (Limit / Ödeme toplamı oranı)
+* `AGE_BIN` (Yaşın kategorik versiyonu)
 
-**Sonuç:**
-Bu özelliklerin eklenmesiyle modelin ayrıştırma gücü artmış, özellikle **LightGBM** performansı baseline modele göre belirgin şekilde yükselmiştir. Feature Importance analizlerinde `LIMIT_PER_PAY` ve `BILL_SUM` değişkenleri yüksek önem düzeyine ulaşmıştır.
+**Sonuç:** Bu özelliklerin eklenmesi, modelin **ayrıştırma gücünü önemli ölçüde artırmış** ve LightGBM modelinin performansını baseline'a göre belirgin şekilde yükseltmiştir. Özellikle `LIMIT_PER_PAY` yüksek önem ağırlığına ulaşmıştır.
 
----
+### 4. Seçilen Validasyon Şeması ve Nedeni
+* **Şema:** Hold-out Stratified Split (%80 Eğitim, %20 Test).
+* **Neden Stratified?** `TARGET` sınıfının dengesiz olması nedeniyle, sınıf oranının hem eğitim hem de test kümelerinde korunması zorunludur. Bu, modelin gerçek performansını daha doğru temsil etmesini sağlar.
 
-## 4. Seçilen Validasyon Şeması ve Nedeni
-Veri seti yaklaşık 30.000 gözlemden oluştuğu için **Hold-out Stratified Split** (%80 Eğitim, %20 Test) yöntemi tercih edilmiştir.
+### 5. Final Pipeline'daki Özellik Seti ve Ön İşleme
+Final pipeline, otomasyon ve yeniden üretilebilirlik sağlayacak şekilde yapılandırılmıştır:
+* **İmputasyon:** Tüm sayısal kolonlara **median imputasyon**.
+* **Ölçekleme:** Tüm sayısal kolonlara **StandardScaler** ile ölçekleme.
+* **Özellik Seti:** Orijinal kolonlar ve **türetilen dört özelliğin tamamı** dahil edilmiştir.
+* Bu kombinasyon, LightGBM ile en yüksek ROC-AUC skorunu vermiştir.
 
-**Neden Stratified Split?**
-1.  TARGET sınıfı dengesizdir (Imbalanced Dataset).
-2.  Sınıf oranının (Default/Non-default) hem train hem de test setinde korunması gerekir.
-3.  Modelin gerçek performansını rastgele bölmeye göre daha doğru temsil eder.
+### 6. Final Model ile Baseline Arasındaki Başarı Farkı
+| Model | Metrik | Skor |
+| :--- | :--- | :--- |
+| **Baseline (LogReg)** | ROC-AUC | $\approx 0.71–0.73$ |
+| **Final Model (LightGBM)** | ROC-AUC | $\approx 0.78–0.80$ |
 
-*(Not: Bu veri boyutu için Cross-Validation maliyeti yüksek görüldüğünden hold-out stratejisi yeterli bulunmuştur.)*
+**Farkın Kaynakları:**
+1.  **Ağaç Yapısı:** LightGBM'in doğrusal olmayan (non-linear) ilişkileri yakalama yeteneği.
+2.  **Özellik Mühendisliği:** Türetilen yeni özelliklerin katkısı.
+3.  **Boosting:** LightGBM'in performansı maksimize eden güçlü yükseltme (boosting) yapısı.
 
----
+### 7. Final Modelin İş Gereksinimleriyle Uyumu
+**Uyumlu.** Final LightGBM modeli:
+* Yüksek maliyetli **yanlış negatifleri azaltarak** (daha yüksek Recall sağlayarak) default sınıfını baseline'a göre daha iyi yakalamaktadır.
+* Elde edilen ROC-AUC artışı, karar süreçlerini güçlendirir.
+* LightGBM'in düşük tahmin süresi (**inference latency**) sayesinde canlı sistemlerde kullanıma uygundur.
 
-## 5. Final Pipeline ve Ön İşleme Stratejisi
-Geliştirilen pipeline tamamen otomatik ve yeniden üretilebilir (reproducible) yapıdadır. İzlenen adımlar:
+### 8. Modelin Canlıya Alınması ve İzlenmesi
+#### Canlıya Alma (Deployment)
+Model dosyası (`final_model.pkl`), **FastAPI** veya Streamlit kullanılarak bir **REST endpoint** üzerinden servis edilir. Girdi verileri, tahminden önce eğitimdeki aynı preprocessing pipeline'dan geçirilir.
 
-1.  **Imputation:** Tüm sayısal kolonlardaki eksik veriler için `Median` imputasyon.
-2.  **Scaling:** Değişkenlerin aynı ölçeğe getirilmesi için `StandardScaler`.
-3.  **Feature Selection:** Türetilmiş özelliklerin tamamı dahil edilmiştir.
-4.  **Cleaning:** Ek veya gereksiz kolon bulunmadığı için manuel feature dropping yapılmamıştır.
+#### Canlı İzleme (Monitoring)
+Model performansının zamanla düşmemesi için düzenli olarak izlenmesi gereken metrikler:
+* **Model Performansı:** Aylık ROC-AUC takibi ve segment bazlı performans raporları (yaş, limit vb.).
+* **Veri Kalitesi (Data Drift):** Girdi veri dağılımlarındaki kaymaların (özellikle ödeme ve limit değişkenleri) kontrolü.
+* **İş Metrikleri:** Default oranındaki değişimin izlenmesi.
 
-Bu kombinasyon, LightGBM modeli ile en yüksek ROC-AUC skorunu sağlamıştır.
-
----
-
-## 6. Final Model vs. Baseline Başarı Farkı
-
-| Model | ROC-AUC Skoru |
-| :--- | :--- |
-| **Baseline (Logistic Reg.)** | `~0.71 – 0.73` |
-| **Final Model (LightGBM)** | `~0.78 – 0.80` |
-
-**Farkın Ana Kaynakları:**
-* Ağaç tabanlı modelin (LightGBM) non-linear (doğrusal olmayan) ilişkileri yakalayabilmesi.
-* Feature Engineering ile üretilen güçlü değişkenler.
-* LightGBM'in boosting yapısının zayıf öğrenicilerden güçlü bir model çıkarması.
-
-Final model, özellikle default sınıfında daha yüksek **recall** sağlayarak iş kararları için çok daha güvenilir hale gelmiştir.
-
----
-
-## 7. Business Gereksinimleri ile Uyum
-**Sonuç: Evet, model iş gereksinimleri ile uyumludur.**
-
-* ✅ Default sınıfını baseline modele göre daha iyi yakalamaktadır.
-* ✅ Yüksek maliyetli "yanlış negatif" (riskliyi kaçırma) hatalarını azaltmaktadır.
-* ✅ ROC-AUC artışı, karar destek mekanizmalarını kuvvetlendirmektedir.
-* ✅ Sektör için kabul edilen hız–performans dengesini sağlamaktadır (LightGBM inference süresi düşüktür).
+Bu metrikler bozulmaya başladığında modelin **yeniden eğitilmesi** zorunludur.
 
 ---
 
-## 8. Canlıya Alma (Deployment) ve İzleme (Monitoring)
+## 🛠 Proje Klasör Yapısı (Özet)
+Bu yapı, profesyonel veri bilimi projelerinde kullanılan standart bir mimaridir.
 
-### Canlıya Alma Stratejisi
-1.  Model dosyası (`final_model.pkl`) bir API üzerinden servis edilir.
-2.  **Streamlit** veya **FastAPI** kullanılarak bir REST endpoint oluşturulur.
-3.  Girdi değişkenleri, eğitimdeki preprocessing pipeline’ından geçirilir.
-4.  Model tahmini (olasılık skoru) gerçek zamanlı olarak döndürülür.
+```text
+credit-default-risk-final
+├── data/
+│   └── raw/ → Ham veri
+├── docs/
+│   └── *.md, *.png → Raporlar, grafikler (Confusion Matrix, Feature Importance vb.)
+├── models/
+│   └── final_model.pkl → Eğitilmiş LightGBM modeli
+├── notebooks/
+│   └── 1_eda.ipynb, 2_baseline.ipynb, ... → Tüm analiz ve modelleme akışı
+├── src/
+│   └── data_prep.py, pipeline.py, inference.py → Tüm Python modülleri
+└── requirements.txt
+````
 
-### İzleme (Monitoring) Planı
-Model canlıya alındıktan sonra performansın düşmemesi için şu metrikler takip edilmelidir:
-* 📅 **Aylık ROC-AUC Takibi**
-* 📊 **Default Rate Değişimi**
-* ⚠️ **Data Drift:** Veri dağılımlarındaki kaymaların kontrolü.
-* 📈 **Feature Importance:** Özellik önemlerinin zamansal değişimi.
-* 👥 **Segment Bazlı Performans:** Yaş, limit seviyesi vb. kırılımlarda hata analizi.
+-----
 
-*Metriklerde bozulma tespit edildiğinde model yeniden eğitilmelidir (Retraining).*
+## 💻 Kurulum ve Çalıştırma
 
----
+Proje klasörünün içinde:
 
-## 🏁 Proje Özeti
-Bu çalışma, bankacılık sektöründe temerrüt riskini tahmin eden profesyonel bir ML pipeline’ı içerir. Veri hazırlama, feature engineering, modelleme, validasyon, değerlendirme ve dokümantasyon aşamalarının tamamı uçtan uca yerine getirilmiştir.
+1.  **Sanal Ortam Oluştur:**
+    ```bash
+    python -m venv venv
+    ```
+2.  **Ortamı Aktifleştir:**
+    ```bash
+    venv\Scripts\activate  # Windows
+    # source venv/bin/activate # Mac/Linux
+    ```
+3.  **Paketleri Yükle:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+4.  **Notebook'ları Başlat:**
+    ```bash
+    jupyter notebook
+    ```
 
-* **Final Model:** LightGBM Classifier
-* **Final Metrik:** ROC-AUC ≈ 0.78–0.80
-* **Statü:** Tamamlandı & Kullanıma Hazır
+<!-- end list -->
+
+```
 ```
