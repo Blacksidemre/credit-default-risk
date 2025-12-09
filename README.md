@@ -6,6 +6,16 @@ Bu proje, UCI "Default of Credit Card Clients" veri seti kullanılarak, bir kred
 
 ---
 
+## 🚀 Canlıya Alma (Deployment) ve Demo
+
+Modelin tahmin yeteneği, Render platformu kullanılarak canlı bir web servisine dönüştürülmüştür.
+
+* **Canlı API Endpoint (Demo):** [https://credit-default-risk-dbuk.onrender.com/](https://credit-default-risk-dbuk.onrender.com/)
+
+Bu URL, modelin gerçek zamanlı tahmin yeteneğini göstermektedir ve projeyi inceleyenler için hızlı bir demo sunar.
+
+---
+
 ## ❓ Proje Taslağındaki Cevaplar (8 Kritik Soru)
 
 Aşağıda, projenin teknik ve iş odaklı tüm zorunlu sorularına ait detaylı yanıtlar bulunmaktadır.
@@ -61,11 +71,9 @@ Model dosyası (`final_model.pkl`), **FastAPI** veya Streamlit kullanılarak bir
 
 #### Canlı İzleme (Monitoring)
 Model performansının zamanla düşmemesi için düzenli olarak izlenmesi gereken metrikler:
-* **Model Performansı:** Aylık ROC-AUC takibi ve segment bazlı performans raporları (yaş, limit vb.).
-* **Veri Kalitesi (Data Drift):** Girdi veri dağılımlarındaki kaymaların (özellikle ödeme ve limit değişkenleri) kontrolü.
+* **Model Performansı:** Aylık ROC-AUC takibi ve segment bazlı performans raporları.
+* **Veri Kalitesi (Data Drift):** Girdi veri dağılımlarındaki kaymaların kontrolü.
 * **İş Metrikleri:** Default oranındaki değişimin izlenmesi.
-
-Bu metrikler bozulmaya başladığında modelin **yeniden eğitilmesi** zorunludur.
 
 ---
 
@@ -77,7 +85,7 @@ credit-default-risk-final
 ├── data/
 │   └── raw/ → Ham veri
 ├── docs/
-│   └── *.md, *.png → Raporlar, grafikler (Confusion Matrix, Feature Importance vb.)
+│   └── *.md, *.png → Raporlar ve Grafiksel Sonuçlar
 ├── models/
 │   └── final_model.pkl → Eğitilmiş LightGBM modeli
 ├── notebooks/
@@ -85,5 +93,3 @@ credit-default-risk-final
 ├── src/
 │   └── data_prep.py, pipeline.py, inference.py → Tüm Python modülleri
 └── requirements.txt
-
-
