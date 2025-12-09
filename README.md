@@ -1,6 +1,3 @@
------
-
-````markdown
 # 🏦 Kredi Temerrüt Riski Tahmini (Credit Default Risk Prediction)
 
 Bu proje, UCI "Default of Credit Card Clients" veri seti kullanılarak, bir kredi kartı müşterisinin bir sonraki ay temerrüde düşme ihtimalini tahmin etmek için hazırlanmış **uçtan uca bir Makine Öğrenmesi (ML) pipeline'ıdır.**
@@ -88,33 +85,29 @@ credit-default-risk-final
 ├── src/
 │   └── data_prep.py, pipeline.py, inference.py → Tüm Python modülleri
 └── requirements.txt
-````
 
------
 
-## 💻 Kurulum ve Çalıştırma
-
+💻 Kurulum ve Çalıştırma
 Proje klasörünün içinde:
 
-1.  **Sanal Ortam Oluştur:**
-    ```bash
-    python -m venv venv
-    ```
-2.  **Ortamı Aktifleştir:**
-    ```bash
-    venv\Scripts\activate  # Windows
-    # source venv/bin/activate # Mac/Linux
-    ```
-3.  **Paketleri Yükle:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-4.  **Notebook'ları Başlat:**
-    ```bash
-    jupyter notebook
-    ```
+Sanal Ortam Oluştur:
 
-<!-- end list -->
+Bash
 
-```
-```
+python -m venv venv
+Ortamı Aktifleştir:
+
+Bash
+
+venv\Scripts\activate  # Windows
+# source venv/bin/activate # Mac/Linux
+Paketleri Yükle:
+
+Bash
+
+pip install -r requirements.txt
+Notebook'ları Başlat:
+
+Bash
+
+jupyter notebook
