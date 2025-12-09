@@ -87,27 +87,3 @@ credit-default-risk-final
 └── requirements.txt
 
 
-💻 Kurulum ve Çalıştırma
-Proje klasörünün içinde:
-
-Sanal Ortam Oluştur:
-
-Bash
-
-python -m venv venv
-Ortamı Aktifleştir:
-
-Bash
-
-venv\Scripts\activate  # Windows
-# source venv/bin/activate # Mac/Linux
-Paketleri Yükle:
-
-Bash
-
-pip install -r requirements.txt
-Notebook'ları Başlat:
-
-Bash
-
-jupyter notebook
