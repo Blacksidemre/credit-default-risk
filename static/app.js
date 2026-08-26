@@ -5,6 +5,21 @@ const monthLabels = ["Son Ay", "2 Ay Önce", "3 Ay Önce", "4 Ay Önce", "5 Ay �
 const defaultBills = [50000, 48000, 47000, 45000, 43000, 42000];
 const defaultPays = [5000, 5000, 5000, 5000, 5000, 5000];
 
+const demoProfiles = {
+  low: {
+    LIMIT_BAL: 300000, SEX: 2, EDUCATION: 2, MARRIAGE: 2, AGE: 34,
+    PAY_0: -1, PAY_2: -1, PAY_3: 0, PAY_4: 0, PAY_5: 0, PAY_6: 0,
+    BILL_AMT1: 42000, BILL_AMT2: 40500, BILL_AMT3: 39000, BILL_AMT4: 37200, BILL_AMT5: 35800, BILL_AMT6: 34100,
+    PAY_AMT1: 12000, PAY_AMT2: 11000, PAY_AMT3: 10000, PAY_AMT4: 10000, PAY_AMT5: 9000, PAY_AMT6: 9000
+  },
+  high: {
+    LIMIT_BAL: 50000, SEX: 1, EDUCATION: 2, MARRIAGE: 1, AGE: 39,
+    PAY_0: 2, PAY_2: 2, PAY_3: 2, PAY_4: 2, PAY_5: 2, PAY_6: 2,
+    BILL_AMT1: 49000, BILL_AMT2: 48500, BILL_AMT3: 48000, BILL_AMT4: 47000, BILL_AMT5: 46500, BILL_AMT6: 45500,
+    PAY_AMT1: 1000, PAY_AMT2: 1000, PAY_AMT3: 800, PAY_AMT4: 500, PAY_AMT5: 500, PAY_AMT6: 300
+  }
+};
+
 function buildDynamicFields() {
   const statusGrid = document.getElementById("payment-status-grid");
   const billGrid = document.getElementById("bill-grid");
@@ -102,7 +117,7 @@ function updateResult(result) {
   gauge.style.setProperty("--gauge-color", colors[band]);
 
   badge.className = `risk-badge ${band}`;
-  badge.textContent = band === "low" ? "Düşük Risk" : band === "medium" ? "Orta Risk" : "Yüksek Risk";
+  badge.textContent = band === "low" ? "Düşük Risk" : band === "medium" ? "İzleme" : "Yüksek Risk";
 
   decision.className = `decision-panel ${band}`;
   if (result.prediction === 1) {
@@ -203,11 +218,18 @@ async function handleSubmit(event) {
   }
 }
 
-function resetForm() {
+
+function setFormValues(values) {
   const form = document.getElementById("risk-form");
-  form.reset();
-  const payload = collectPayload();
-  computeSummaries(payload);
+  for (const [key, value] of Object.entries(values)) {
+    const field = form.elements.namedItem(key);
+    if (field) field.value = value;
+  }
+  computeSummaries(collectPayload());
+  clearResult();
+}
+
+function clearResult() {
   document.getElementById("risk-percentage").textContent = "—";
   const gauge = document.getElementById("risk-gauge");
   gauge.style.setProperty("--risk", "0deg");
@@ -219,6 +241,13 @@ function resetForm() {
   const decision = document.getElementById("decision-panel");
   decision.className = "decision-panel";
   decision.innerHTML = `<span class="decision-icon">✓</span><div><strong>Değerlendirmeye hazır</strong><p>Formu doldurup tahmin butonuna basın.</p></div>`;
+}
+
+function resetForm() {
+  const form = document.getElementById("risk-form");
+  form.reset();
+  computeSummaries(collectPayload());
+  clearResult();
 }
 
 function initNavigation() {
@@ -238,5 +267,7 @@ buildDynamicFields();
 initNavigation();
 document.getElementById("risk-form").addEventListener("submit", handleSubmit);
 document.getElementById("reset-form").addEventListener("click", resetForm);
+document.getElementById("preset-low").addEventListener("click", () => setFormValues(demoProfiles.low));
+document.getElementById("preset-high").addEventListener("click", () => setFormValues(demoProfiles.high));
 computeSummaries(collectPayload());
 window.addEventListener("resize", () => computeSummaries(collectPayload()));

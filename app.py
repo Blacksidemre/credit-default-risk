@@ -1,12 +1,14 @@
-"""Render üzerinde çalışacak FastAPI servis ve kullanıcı arayüzü giriş noktası."""
+"""FastAPI entry point for the CrediRisk AI dashboard and prediction API."""
 from __future__ import annotations
 
 import json
+import logging
+import os
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -15,37 +17,71 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.config import DOCS_DIR, PROJECT_ROOT
 from src.inference import load_model, predict_batch, predict_single
 
+APP_VERSION = "2.2.0"
 TEMPLATES_DIR = PROJECT_ROOT / "templates"
 STATIC_DIR = PROJECT_ROOT / "static"
 METRICS_FILE = DOCS_DIR / "metrics.json"
 
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
+logger = logging.getLogger("credirisk")
+
 
 def _load_metrics() -> dict:
-    """Dashboard için model metriklerini docs/metrics.json dosyasından okur."""
+    """Load model metrics used by the dashboard without making startup depend on them."""
     if not METRICS_FILE.exists():
+        logger.warning("Metrics file not found: %s", METRICS_FILE)
         return {}
     try:
         return json.loads(METRICS_FILE.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
+        logger.exception("Metrics file could not be read: %s", METRICS_FILE)
         return {}
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Servis ayağa kalkarken modeli belleğe yükler; eksik artifact varsa deploy erken fail eder."""
-    load_model()
+    """Load and validate the model once when the service starts."""
+    logger.info("Starting CrediRisk AI v%s", APP_VERSION)
+    try:
+        bundle = load_model(force_reload=True)
+        logger.info(
+            "Model loaded successfully | model=%s threshold=%.6f",
+            bundle.get("model_name", "LightGBM"),
+            float(bundle.get("threshold", 0.5)),
+        )
+    except Exception:
+        logger.exception("Model initialization failed")
+        raise
     yield
+    logger.info("CrediRisk AI shutdown complete")
 
 
 app = FastAPI(
-    title="Credit Default Risk API",
-    version="2.0.0",
+    title="CrediRisk AI API",
+    version=APP_VERSION,
     description=(
-        "UCI Default of Credit Card Clients veri seti ile eğitilmiş LightGBM tahmin servisi. "
-        "Ana sayfa görsel dashboard, /docs ise geliştirici API arayüzüdür."
+        "LightGBM-based credit default risk demonstration trained on the UCI "
+        "Default of Credit Card Clients dataset. The root path serves the web dashboard."
     ),
     lifespan=lifespan,
 )
+
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add lightweight security headers suitable for a public demonstration service."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    return response
+
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/assets/docs", StaticFiles(directory=DOCS_DIR), name="docs_assets")
@@ -53,7 +89,7 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 
 class CreditClient(BaseModel):
-    """Modelin beklediği 23 ham UCI özelliği."""
+    """Raw feature schema expected by the serialized ML pipeline."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -91,7 +127,7 @@ class PredictionResponse(BaseModel):
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def dashboard(request: Request):
-    """Son kullanıcıya yönelik kredi riski dashboard'u."""
+    """Render the browser-facing risk dashboard."""
     metrics = _load_metrics()
     lightgbm_metrics = metrics.get("models", {}).get("LightGBM", {})
     dataset_metrics = metrics.get("dataset", {})
@@ -103,15 +139,17 @@ def dashboard(request: Request):
             "metrics": lightgbm_metrics,
             "dataset": dataset_metrics,
             "final_model": final_model,
+            "app_version": APP_VERSION,
         },
     )
 
 
 @app.get("/api", tags=["system"])
 def api_info() -> dict:
-    """Makine tarafından okunabilir servis bilgisi."""
+    """Return machine-readable service metadata."""
     return {
-        "service": "Credit Default Risk API",
+        "service": "CrediRisk AI",
+        "version": APP_VERSION,
         "status": "ok",
         "model": "LightGBM",
         "dashboard": "/",
@@ -124,12 +162,22 @@ def api_info() -> dict:
 
 @app.get("/health", tags=["system"])
 def health() -> dict:
+    """Render readiness endpoint; returns 2xx only when the model can be loaded."""
     bundle = load_model()
+    commit = os.getenv("RENDER_GIT_COMMIT", "local")
     return {
         "status": "healthy",
+        "service": "CrediRisk AI",
+        "version": APP_VERSION,
         "model_loaded": True,
         "model_name": bundle.get("model_name", "LightGBM"),
         "threshold": float(bundle.get("threshold", 0.5)),
+        "deployment": {
+            "platform": "render" if os.getenv("RENDER") == "true" else "local",
+            "branch": os.getenv("RENDER_GIT_BRANCH", "local"),
+            "commit": commit[:12] if commit != "local" else commit,
+            "repository": os.getenv("RENDER_GIT_REPO_SLUG", "local"),
+        },
     }
 
 
@@ -141,6 +189,7 @@ def predict(payload: CreditClient) -> PredictionResponse:
     except (ValueError, FileNotFoundError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
+        logger.exception("Unexpected error during single prediction")
         raise HTTPException(status_code=500, detail="Tahmin sırasında beklenmeyen bir hata oluştu.") from exc
 
 
@@ -156,4 +205,5 @@ def predict_many(payload: list[CreditClient]) -> list[PredictionResponse]:
     except (ValueError, FileNotFoundError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
+        logger.exception("Unexpected error during batch prediction")
         raise HTTPException(status_code=500, detail="Batch tahmin sırasında beklenmeyen bir hata oluştu.") from exc

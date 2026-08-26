@@ -30,7 +30,19 @@ def test_static_css():
 def test_health():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json()["model_loaded"] is True
+    body = response.json()
+    assert body["status"] == "healthy"
+    assert body["service"] == "CrediRisk AI"
+    assert body["model_loaded"] is True
+    assert body["version"] == "2.2.0"
+    assert "deployment" in body
+    assert body["deployment"]["platform"] in ["local", "render"]
+
+
+def test_api_info():
+    response = client.get("/api")
+    assert response.status_code == 200
+    assert response.json()["version"] == "2.2.0"
 
 
 def test_predict():
@@ -39,3 +51,18 @@ def test_predict():
     body = response.json()
     assert 0.0 <= body["default_probability"] <= 1.0
     assert body["prediction"] in [0, 1]
+    assert body["risk_label"] in ["low", "high"]
+
+
+def test_predict_rejects_missing_required_input():
+    invalid = dict(SAMPLE)
+    del invalid["AGE"]
+    response = client.post("/predict", json=invalid)
+    assert response.status_code == 422
+
+
+def test_security_headers():
+    response = client.get("/")
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "no-referrer"

@@ -218,3 +218,12 @@ input:focus, select:focus { border-color:#7aa8ff; background:#fff; box-shadow:0 
   .performance-intro { display:block; }
   .model-chip { margin-top:16px; }
 }
+
+/* Public demo polish */
+.form-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+.scale-note { margin:8px 0 0; color:#8a96a8; font-size:8px; line-height:1.45; }
+.app-footer { display:flex; justify-content:space-between; gap:16px; padding:24px 2px 4px; color:#8b97a8; font-size:8px; }
+@media (max-width: 680px) {
+  .form-actions { width:100%; justify-content:flex-start; margin-top:8px; }
+  .app-footer { display:grid; gap:4px; }
+}

@@ -3,7 +3,14 @@ services:
     name: credit-default-risk
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    branch: main
+    buildCommand: python -m pip install --upgrade pip && python -m pip install -r requirements.txt && python scripts/render_smoke_test.py
+    startCommand: python -m uvicorn app:app --host 0.0.0.0 --port $PORT --workers 1
     healthCheckPath: /health
-    autoDeploy: true
+    renderSubdomainPolicy: enabled
+    autoDeployTrigger: commit
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: PYTHONUNBUFFERED
+        value: "1"

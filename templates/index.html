@@ -4,6 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="LightGBM tabanlı kredi kartı temerrüt riski tahmin dashboard'u">
+  <meta name="theme-color" content="#0b1f3a">
+  <meta property="og:title" content="CrediRisk AI | Kredi Temerrüt Riski">
+  <meta property="og:description" content="Makine öğrenmesi tabanlı kredi temerrüt riski tahmin demonstrasyonu.">
+  <meta property="og:type" content="website">
   <title>CrediRisk AI | Kredi Temerrüt Riski</title>
   <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
 </head>
@@ -14,7 +18,7 @@
         <span class="brand-mark">CR</span>
         <span>
           <strong>CrediRisk AI</strong>
-          <small>Decision Intelligence</small>
+          <small>Credit Risk Analytics</small>
         </span>
       </a>
 
@@ -35,7 +39,7 @@
           <span class="status-dot"></span>
           <div>
             <strong>Model çevrimiçi</strong>
-            <small>LightGBM • v2.0</small>
+            <small>LightGBM • v{{ app_version }}</small>
           </div>
         </div>
         <div class="threshold-row">
@@ -53,6 +57,7 @@
         </div>
         <div class="top-actions">
           <span class="live-pill"><span></span> API Aktif</span>
+          <a class="ghost-button" href="https://github.com/Blacksidemre/credit-default-risk" target="_blank" rel="noreferrer">Kaynak Kod</a>
           <a class="ghost-button" href="/health" target="_blank" rel="noreferrer">Sistem Durumu</a>
         </div>
       </header>
@@ -60,9 +65,9 @@
       <section id="prediction-view" class="view active-view">
         <div class="hero-strip">
           <div>
-            <span class="hero-badge">AI destekli karar desteği</span>
+            <span class="hero-badge">Makine öğrenmesi tabanlı karar desteği</span>
             <h2>Bir müşterinin gelecek ay temerrüde düşme olasılığını saniyeler içinde değerlendirin.</h2>
-            <p>23 ham müşteri değişkeni, otomatik özellik mühendisliği ve LightGBM pipeline'ı ile tek akışta işlenir.</p>
+            <p>23 müşteri değişkeni, otomatik özellik mühendisliği ve LightGBM pipeline'ı ile tek akışta işlenir.</p>
           </div>
           <div class="hero-stat">
             <span>Test ROC-AUC</span>
@@ -78,7 +83,11 @@
                 <p class="section-kicker">MÜŞTERİ VERİLERİ</p>
                 <h3>Risk Değerlendirme Formu</h3>
               </div>
-              <button id="reset-form" class="text-button" type="button">Örneği sıfırla</button>
+              <div class="form-actions">
+                <button id="preset-low" class="text-button" type="button">Düşük risk örneği</button>
+                <button id="preset-high" class="text-button" type="button">Yüksek risk örneği</button>
+                <button id="reset-form" class="text-button" type="button">Sıfırla</button>
+              </div>
             </div>
 
             <form id="risk-form">
@@ -150,7 +159,7 @@
             <article class="card risk-card">
               <div class="card-heading compact">
                 <div><p class="section-kicker">TAHMİN SONUCU</p><h3>Temerrüt Olasılığı</h3></div>
-                <span id="risk-badge" class="risk-badge neutral">Henüz hesaplanmadı</span>
+                <span id="risk-badge" class="risk-badge neutral" aria-live="polite">Henüz hesaplanmadı</span>
               </div>
 
               <div class="risk-gauge-wrap">
@@ -170,6 +179,7 @@
               <div class="threshold-scale">
                 <div class="threshold-labels"><span>Düşük risk</span><span>Karar eşiği: <b id="threshold-value">{{ '%.1f'|format(final_model.get('threshold', 0.5) * 100) }}%</b></span><span>Yüksek risk</span></div>
                 <div class="scale-track"><div id="threshold-marker" class="threshold-marker" style="left: {{ final_model.get('threshold', 0.5) * 100 }}%"></div><div id="probability-fill" class="probability-fill" style="width:0%"></div></div>
+                <p class="scale-note">“İzleme” bandı, modelin pozitif sınıf kararı değildir; karar eşiğinin altında ancak eşiğe görece yakın olasılıkları görsel olarak ayırır.</p>
               </div>
             </article>
 
@@ -187,7 +197,7 @@
 
             <article class="insight-card">
               <span class="insight-icon">i</span>
-              <p><strong>Karar desteği:</strong> Bu çıktı istatistiksel bir risk tahminidir. Nihai kredi kararı, kurum politikaları ve ek doğrulamalarla birlikte değerlendirilmelidir.</p>
+              <p><strong>Kullanım notu:</strong> Bu ekran kamuya açık bir model demosudur. Hassas veya gerçek müşteri verisi girmeyin; çıktı tek başına finansal karar vermek için kullanılmamalıdır.</p>
             </article>
           </section>
         </div>
@@ -215,6 +225,10 @@
           <article class="chart-card"><div><strong>Calibration Curve</strong><span>Olasılık kalibrasyon görünümü</span></div><img src="/assets/docs/calibration_curve.png" alt="Calibration curve" loading="lazy"></article>
         </div>
       </section>
+      <footer class="app-footer">
+        <span>CrediRisk AI • UCI tabanlı demonstrasyon</span>
+        <span>Para birimi: NT$ • Hassas/gerçek müşteri verisi kullanmayın</span>
+      </footer>
     </main>
   </div>
 
