@@ -1,71 +1,103 @@
+"""Model pipeline'larını oluşturan ortak bileşenler."""
+from __future__ import annotations
+
+from lightgbm import LGBMClassifier
 from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_auc_score
-from lightgbm import LGBMClassifier
-import joblib
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from .config import TEST_SIZE, RANDOM_STATE, FINAL_MODEL_PATH
-from .data_prep import load_raw_data, add_features, get_feature_target
+from .config import CATEGORICAL_FEATURES, ENGINEERED_FEATURES, RANDOM_STATE, RAW_FEATURES
+from .data_prep import FeatureEngineer
 
-def build_preprocessor(feature_names):
-    num_cols = feature_names
-    numeric = Pipeline(
+
+def _feature_space() -> tuple[list[str], list[str]]:
+    all_features = RAW_FEATURES + ENGINEERED_FEATURES
+    categorical = CATEGORICAL_FEATURES
+    numeric = [c for c in all_features if c not in categorical]
+    return numeric, categorical
+
+
+def build_preprocessor() -> ColumnTransformer:
+    """Sayısal ve kategorik alanlar için üretim ortamına uygun preprocessing kurar."""
+    numeric_features, categorical_features = _feature_space()
+
+    numeric_pipeline = Pipeline(
         steps=[
             ("imputer", SimpleImputer(strategy="median")),
             ("scaler", StandardScaler()),
         ]
     )
-    pre = ColumnTransformer(
-        transformers=[("num", numeric, num_cols)],
+    categorical_pipeline = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
+        ]
+    )
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("num", numeric_pipeline, numeric_features),
+            ("cat", categorical_pipeline, categorical_features),
+        ],
         remainder="drop",
+        verbose_feature_names_out=False,
     )
-    return pre
+    # LightGBM eğitim ve tahmin aşamalarında aynı kolon isimlerini görsün.
+    preprocessor.set_output(transform="pandas")
+    return preprocessor
 
-def train_baseline():
-    df = load_raw_data()
-    df = add_features(df)
-    X, y = get_feature_target(df)
-    pre = build_preprocessor(X.columns.tolist())
-    model = LogisticRegression(max_iter=2000)
-    pipe = Pipeline([("prep", pre), ("model", model)])
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
-        test_size=TEST_SIZE,
-        random_state=RANDOM_STATE,
-        stratify=y,
-    )
-    pipe.fit(X_train, y_train)
-    preds = pipe.predict_proba(X_test)[:, 1]
-    auc = roc_auc_score(y_test, preds)
-    return pipe, auc
 
-def train_lgbm_with_features(save: bool = True):
-    df = load_raw_data()
-    df = add_features(df)
-    X, y = get_feature_target(df)
-    pre = build_preprocessor(X.columns.tolist())
-    lgbm = LGBMClassifier(
-        random_state=RANDOM_STATE,
-        n_estimators=300,
-        learning_rate=0.05,
-        num_leaves=50,
-        subsample=0.9,
+def build_logistic_pipeline() -> Pipeline:
+    """Baseline Logistic Regression pipeline'ı."""
+    return Pipeline(
+        steps=[
+            ("feature_engineering", FeatureEngineer()),
+            ("preprocess", build_preprocessor()),
+            (
+                "model",
+                LogisticRegression(
+                    max_iter=3000,
+                    class_weight="balanced",
+                    solver="liblinear",
+                    random_state=RANDOM_STATE,
+                ),
+            ),
+        ]
     )
-    pipe = Pipeline([("prep", pre), ("model", lgbm)])
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
-        test_size=TEST_SIZE,
-        random_state=RANDOM_STATE,
-        stratify=y,
+
+
+def build_lightgbm_pipeline() -> Pipeline:
+    """Final LightGBM pipeline'ı."""
+    return Pipeline(
+        steps=[
+            ("feature_engineering", FeatureEngineer()),
+            ("preprocess", build_preprocessor()),
+            (
+                "model",
+                LGBMClassifier(
+                    objective="binary",
+                    n_estimators=450,
+                    learning_rate=0.035,
+                    num_leaves=31,
+                    max_depth=-1,
+                    min_child_samples=30,
+                    subsample=0.90,
+                    colsample_bytree=0.90,
+                    reg_alpha=0.10,
+                    reg_lambda=0.30,
+                    class_weight="balanced",
+                    random_state=RANDOM_STATE,
+                    n_jobs=-1,
+                    verbosity=-1,
+                ),
+            ),
+        ]
     )
-    pipe.fit(X_train, y_train)
-    preds = pipe.predict_proba(X_test)[:, 1]
-    auc = roc_auc_score(y_test, preds)
-    if save:
-        FINAL_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump(pipe, FINAL_MODEL_PATH)
-    return pipe, auc
+
+
+def get_transformed_feature_names(fitted_pipeline: Pipeline) -> list[str]:
+    """Eğitilmiş pipeline'ın model tarafında gördüğü feature isimlerini döndürür."""
+    preprocessor = fitted_pipeline.named_steps["preprocess"]
+    return preprocessor.get_feature_names_out().tolist()

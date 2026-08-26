@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="LightGBM tabanlı kredi kartı temerrüt riski tahmin dashboard'u">
+  <title>CrediRisk AI | Kredi Temerrüt Riski</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="CrediRisk AI ana sayfa">
+        <span class="brand-mark">CR</span>
+        <span>
+          <strong>CrediRisk AI</strong>
+          <small>Decision Intelligence</small>
+        </span>
+      </a>
+
+      <nav class="nav-list" aria-label="Ana menü">
+        <button class="nav-item active" data-view="prediction-view">
+          <span class="nav-icon">⌁</span> Risk Tahmini
+        </button>
+        <button class="nav-item" data-view="performance-view">
+          <span class="nav-icon">◫</span> Model Performansı
+        </button>
+        <a class="nav-item" href="/docs" target="_blank" rel="noreferrer">
+          <span class="nav-icon">{ }</span> API Dokümantasyonu
+        </a>
+      </nav>
+
+      <div class="sidebar-status">
+        <div class="status-row">
+          <span class="status-dot"></span>
+          <div>
+            <strong>Model çevrimiçi</strong>
+            <small>LightGBM • v2.0</small>
+          </div>
+        </div>
+        <div class="threshold-row">
+          <span>Karar eşiği</span>
+          <strong>{{ '%.3f'|format(final_model.get('threshold', 0.5)) }}</strong>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">KREDİ RİSK YÖNETİMİ</p>
+          <h1 id="page-title">Müşteri Temerrüt Riski</h1>
+        </div>
+        <div class="top-actions">
+          <span class="live-pill"><span></span> API Aktif</span>
+          <a class="ghost-button" href="/health" target="_blank" rel="noreferrer">Sistem Durumu</a>
+        </div>
+      </header>
+
+      <section id="prediction-view" class="view active-view">
+        <div class="hero-strip">
+          <div>
+            <span class="hero-badge">AI destekli karar desteği</span>
+            <h2>Bir müşterinin gelecek ay temerrüde düşme olasılığını saniyeler içinde değerlendirin.</h2>
+            <p>23 ham müşteri değişkeni, otomatik özellik mühendisliği ve LightGBM pipeline'ı ile tek akışta işlenir.</p>
+          </div>
+          <div class="hero-stat">
+            <span>Test ROC-AUC</span>
+            <strong>{{ '%.3f'|format(metrics.get('roc_auc', 0)) }}</strong>
+            <small>Hold-out performansı</small>
+          </div>
+        </div>
+
+        <div class="workspace-grid">
+          <section class="card form-card">
+            <div class="card-heading">
+              <div>
+                <p class="section-kicker">MÜŞTERİ VERİLERİ</p>
+                <h3>Risk Değerlendirme Formu</h3>
+              </div>
+              <button id="reset-form" class="text-button" type="button">Örneği sıfırla</button>
+            </div>
+
+            <form id="risk-form">
+              <div class="form-section">
+                <div class="form-section-title">
+                  <span>01</span>
+                  <div><strong>Profil Bilgileri</strong><small>Temel müşteri ve kredi bilgileri</small></div>
+                </div>
+                <div class="form-grid three-col">
+                  <label class="field wide">
+                    <span>Kredi Limiti</span>
+                    <div class="input-with-suffix"><input type="number" name="LIMIT_BAL" value="200000" min="0" step="1000" required><b>NT$</b></div>
+                  </label>
+                  <label class="field">
+                    <span>Yaş</span>
+                    <input type="number" name="AGE" value="35" min="18" max="120" required>
+                  </label>
+                  <label class="field">
+                    <span>Cinsiyet</span>
+                    <select name="SEX" required><option value="1">Erkek</option><option value="2" selected>Kadın</option></select>
+                  </label>
+                  <label class="field">
+                    <span>Eğitim</span>
+                    <select name="EDUCATION" required>
+                      <option value="1">Lisansüstü</option><option value="2" selected>Üniversite</option><option value="3">Lise</option><option value="4">Diğer</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>Medeni Durum</span>
+                    <select name="MARRIAGE" required><option value="1" selected>Evli</option><option value="2">Bekâr</option><option value="3">Diğer</option></select>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <div class="form-section-title">
+                  <span>02</span>
+                  <div><strong>Ödeme Durumu</strong><small>Son altı ayın gecikme statüleri</small></div>
+                </div>
+                <div class="payment-status-grid" id="payment-status-grid"></div>
+                <p class="helper-text">-2/-1/0 zamanında veya gecikmesiz durumları; pozitif değerler gecikme ayını temsil eder.</p>
+              </div>
+
+              <div class="form-section">
+                <div class="form-section-title">
+                  <span>03</span>
+                  <div><strong>Fatura Tutarları</strong><small>Son altı aylık ekstre bakiyeleri</small></div>
+                </div>
+                <div class="amount-grid" id="bill-grid"></div>
+              </div>
+
+              <div class="form-section">
+                <div class="form-section-title">
+                  <span>04</span>
+                  <div><strong>Ödeme Tutarları</strong><small>Son altı ayda yapılan ödemeler</small></div>
+                </div>
+                <div class="amount-grid" id="pay-grid"></div>
+              </div>
+
+              <button class="primary-button" id="predict-button" type="submit">
+                <span class="button-label">Temerrüt Riskini Hesapla</span>
+                <span class="spinner" aria-hidden="true"></span>
+              </button>
+              <div id="form-error" class="error-message" role="alert"></div>
+            </form>
+          </section>
+
+          <section class="results-column">
+            <article class="card risk-card">
+              <div class="card-heading compact">
+                <div><p class="section-kicker">TAHMİN SONUCU</p><h3>Temerrüt Olasılığı</h3></div>
+                <span id="risk-badge" class="risk-badge neutral">Henüz hesaplanmadı</span>
+              </div>
+
+              <div class="risk-gauge-wrap">
+                <div id="risk-gauge" class="risk-gauge" style="--risk: 0deg">
+                  <div class="risk-gauge-inner">
+                    <strong id="risk-percentage">—</strong>
+                    <span>Temerrüt riski</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="decision-panel" id="decision-panel">
+                <span class="decision-icon">✓</span>
+                <div><strong>Değerlendirmeye hazır</strong><p>Formu doldurup tahmin butonuna basın.</p></div>
+              </div>
+
+              <div class="threshold-scale">
+                <div class="threshold-labels"><span>Düşük risk</span><span>Karar eşiği: <b id="threshold-value">{{ '%.1f'|format(final_model.get('threshold', 0.5) * 100) }}%</b></span><span>Yüksek risk</span></div>
+                <div class="scale-track"><div id="threshold-marker" class="threshold-marker" style="left: {{ final_model.get('threshold', 0.5) * 100 }}%"></div><div id="probability-fill" class="probability-fill" style="width:0%"></div></div>
+              </div>
+            </article>
+
+            <div class="summary-grid">
+              <article class="mini-card"><span>Toplam Fatura</span><strong id="bill-sum">—</strong><small>Son 6 ay</small></article>
+              <article class="mini-card"><span>Toplam Ödeme</span><strong id="pay-sum">—</strong><small>Son 6 ay</small></article>
+              <article class="mini-card"><span>Limit / Ödeme</span><strong id="limit-per-pay">—</strong><small>Türetilen özellik</small></article>
+            </div>
+
+            <article class="card trend-card">
+              <div class="card-heading compact"><div><p class="section-kicker">FİNANSAL GÖRÜNÜM</p><h3>6 Aylık Fatura & Ödeme Trendi</h3></div></div>
+              <div class="chart-legend"><span class="bill-dot"></span>Fatura <span class="payment-dot"></span>Ödeme</div>
+              <canvas id="trend-chart" width="720" height="300" aria-label="Fatura ve ödeme trend grafiği"></canvas>
+            </article>
+
+            <article class="insight-card">
+              <span class="insight-icon">i</span>
+              <p><strong>Karar desteği:</strong> Bu çıktı istatistiksel bir risk tahminidir. Nihai kredi kararı, kurum politikaları ve ek doğrulamalarla birlikte değerlendirilmelidir.</p>
+            </article>
+          </section>
+        </div>
+      </section>
+
+      <section id="performance-view" class="view">
+        <div class="metrics-grid">
+          <article class="metric-card"><span>ROC-AUC</span><strong>{{ '%.3f'|format(metrics.get('roc_auc', 0)) }}</strong><small>Ayırma gücü</small></article>
+          <article class="metric-card"><span>Recall</span><strong>{{ '%.1f'|format(metrics.get('recall', 0) * 100) }}%</strong><small>Temerrüt yakalama oranı</small></article>
+          <article class="metric-card"><span>Average Precision</span><strong>{{ '%.3f'|format(metrics.get('average_precision', 0)) }}</strong><small>Dengesiz sınıf metriği</small></article>
+          <article class="metric-card"><span>False Negative Rate</span><strong>{{ '%.1f'|format(metrics.get('false_negative_rate', 0) * 100) }}%</strong><small>Kaçırılan risk oranı</small></article>
+        </div>
+
+        <div class="performance-intro card">
+          <div><p class="section-kicker">MODEL KARTI</p><h2>LightGBM Final Modeli</h2><p>{{ dataset.get('rows', 30000) }} müşteri kaydı üzerinde, stratified hold-out test ve eğitim kümesinde 5-fold OOF eşik optimizasyonu ile değerlendirilmiştir.</p></div>
+          <div class="model-chip"><span>Final model</span><strong>LightGBM</strong><small>Threshold {{ '%.4f'|format(final_model.get('threshold', 0.5)) }}</small></div>
+        </div>
+
+        <div class="chart-gallery">
+          <article class="chart-card"><div><strong>ROC-AUC Eğrisi</strong><span>Model ayrıştırma performansı</span></div><img src="/assets/docs/roc_auc_curve.png" alt="ROC-AUC eğrisi" loading="lazy"></article>
+          <article class="chart-card"><div><strong>Precision-Recall Eğrisi</strong><span>Pozitif sınıf performansı</span></div><img src="/assets/docs/precision_recall_curve.png" alt="Precision Recall eğrisi" loading="lazy"></article>
+          <article class="chart-card"><div><strong>Feature Importance</strong><span>LightGBM global özellik önemleri</span></div><img src="/assets/docs/feature_importance.png" alt="LightGBM feature importance" loading="lazy"></article>
+          <article class="chart-card"><div><strong>Confusion Matrix</strong><span>Karar eşiğindeki sınıflandırma sonuçları</span></div><img src="/assets/docs/confusion_matrix.png" alt="Confusion matrix" loading="lazy"></article>
+          <article class="chart-card"><div><strong>Model Karşılaştırması</strong><span>Baseline ve final model</span></div><img src="/assets/docs/model_metric_comparison.png" alt="Model metric comparison" loading="lazy"></article>
+          <article class="chart-card"><div><strong>Calibration Curve</strong><span>Olasılık kalibrasyon görünümü</span></div><img src="/assets/docs/calibration_curve.png" alt="Calibration curve" loading="lazy"></article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="{{ url_for('static', path='/app.js') }}" defer></script>
+</body>
+</html>

@@ -1,14 +1,52 @@
 {
-  "logistic": {
-    "roc_auc": 0.7176002338950804,
-    "accuracy": 0.8093333333333333,
-    "precision": 0.6871165644171779,
-    "recall": 0.2532027128862095
+  "dataset": {
+    "rows": 30000,
+    "features": 23,
+    "default_rate": 0.2212,
+    "train_rows": 24000,
+    "test_rows": 6000,
+    "validation": "StratifiedKFold first hold-out fold, n_splits=5"
   },
-  "lightgbm": {
-    "roc_auc": 0.7718194969868913,
-    "accuracy": 0.816,
-    "precision": 0.6533700137551581,
-    "recall": 0.3579502637528259
+  "models": {
+    "Logistic Regression": {
+      "threshold": 0.5,
+      "roc_auc": 0.7377671000783957,
+      "average_precision": 0.4959946279542391,
+      "accuracy": 0.7068333333333333,
+      "precision": 0.40064545873674506,
+      "recall": 0.6543674698795181,
+      "f1": 0.49699742636545613,
+      "f2": 0.5808047052533084,
+      "specificity": 0.7217465753424658,
+      "false_negative_rate": 0.34563253012048195,
+      "brier_score": 0.20341008191467858,
+      "tn": 3372,
+      "fp": 1300,
+      "fn": 459,
+      "tp": 869
+    },
+    "LightGBM": {
+      "threshold": 0.29844278293849474,
+      "roc_auc": 0.7883743611002229,
+      "average_precision": 0.5638302319364541,
+      "accuracy": 0.582,
+      "precision": 0.3281887012230635,
+      "recall": 0.848644578313253,
+      "f1": 0.47333053338933223,
+      "f2": 0.6442945346444089,
+      "specificity": 0.506207191780822,
+      "false_negative_rate": 0.15135542168674698,
+      "brier_score": 0.16831814712604481,
+      "tn": 2365,
+      "fp": 2307,
+      "fn": 201,
+      "tp": 1127
+    }
+  },
+  "final_model": {
+    "name": "LightGBM",
+    "threshold_strategy": "5-fold out-of-fold F2 maximization on training split",
+    "threshold": 0.29844278293849474,
+    "artifact": "models/final_model.pkl"
   }
 }

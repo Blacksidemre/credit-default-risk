@@ -1,23 +1,30 @@
-# Kredi Kartı Default Risk Tahmin Projesi
+# Final Model Raporu
 
-Bu proje, UCI *Default of Credit Card Clients* veri seti üzerinde kredi kartı müşterilerinin bir sonraki ay temerrüde düşme olasılığını tahmin etmek için geliştirilmiştir.
+Proje uçtan uca yeniden çalıştırılmış ve final LightGBM modeli gerçek veri üzerinde üretilmiştir.
 
-## Problem Tanımı
+## Sonuç Özeti
 
-Amaç, kredi kartı müşterilerinin bir sonraki ay ödemede temerrüde düşüp düşmeyeceğini (`TARGET` = 1) tahmin etmektir. Bu sayede banka, riski yüksek müşteriler için limit azaltma, ek teminat isteme veya kampanya kısıtlama gibi aksiyonlar alabilir.
+- Veri: 30.000 müşteri
+- Default oranı: %22,12
+- Train: 24.000
+- Test: 6.000
+- LightGBM ROC-AUC: 0.7884
+- LightGBM Average Precision: 0.5638
+- LightGBM Recall: 0.8486
+- LightGBM F2: 0.6443
+- LightGBM False Negative Rate: 0.1514
+- Final threshold: 0.2984427829
 
-## Özet
+## Üretim Artifact'ları
 
-- Sektör: Bankacılık / Kredi riski
-- Veri seti: ~30.000 müşteri
-- Hedef değişken: `TARGET` (1 = default, 0 = normal ödeme)
-- Eğitim / test ayrımı: %80 / %20 (stratified)
-- Modeller:
-  - Logistic Regression (baseline)
-  - LightGBM (final model)
-- Ana metrik: ROC-AUC
+- `models/final_model.pkl`
+- `docs/metrics.json`
+- `docs/target_distribution.png`
+- `docs/roc_auc_curve.png`
+- `docs/precision_recall_curve.png`
+- `docs/feature_importance.png`
+- `docs/confusion_matrix.png`
+- `docs/model_metric_comparison.png`
+- `docs/calibration_curve.png`
 
-Elde edilen sonuçlar:
-
-- Logistic Regression ROC-AUC: **0.718**
-- LightGBM ROC-AUC: **0.772** (final model)
+API, ham 23 alanı alır ve feature engineering dahil tüm preprocessing'i model pipeline'ı içinde uygular.
